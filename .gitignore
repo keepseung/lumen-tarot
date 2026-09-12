@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 원본 타로 이미지 (WebP 변환본은 public/images/tarot/에 있음)
+/tarot/
+.env.local

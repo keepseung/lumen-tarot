@@ -1,0 +1,59 @@
+{
+  "name": "LUMEN — 감성 타로 & 정통 사주",
+  "short_name": "LUMEN 타로",
+  "description": "22장 메이저 아르카나 3D 인터랙티브 타로 리딩과 정통 만세력 사주 분석으로 나만의 운명을 발견하세요.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0c0a1a",
+  "background_color": "#0c0a1a",
+  "categories": ["entertainment", "lifestyle"],
+  "lang": "ko",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "감성 타로 리딩",
+      "short_name": "타로",
+      "url": "/?tab=tarot",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "정통 사주 분석",
+      "short_name": "사주",
+      "url": "/?tab=saju",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "소울 궁합 보기",
+      "short_name": "궁합",
+      "url": "/?tab=compat",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}
