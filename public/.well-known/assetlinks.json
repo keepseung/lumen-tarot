@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.clausoft.lumen.tarot",
+      "sha256_cert_fingerprints": [
+        "1B:11:FB:8E:B3:0A:68:28:29:5C:88:FE:84:D0:D1:ED:B1:22:09:AF:F9:21:61:DC:77:B9:78:12:12:8A:3F:F0"
+      ]
+    }
+  }
+]
