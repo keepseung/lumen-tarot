@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   calculateSajuComplete,
   calculateCompatibility,
@@ -8,12 +8,18 @@ import {
   CalendarType,
   Gender,
   SajuResult,
+  PillarInfo,
+  validateSajuInput,
   CompatibilityScore,
   LIFESTYLE_RECOMMENDATIONS,
   ELEMENT_PROPERTIES,
   FiveElementKorean,
 } from '@/lib/saju';
 import { TarotExperience } from '@/components/tarot/TarotExperience';
+import { ReadingLibrary, SaveReadingButton } from '@/components/readings/ReadingLibrary';
+import { TOPICS, type ReadingTopic, type SavedReading } from '@/lib/readings/storage';
+import { getSajuGuidance } from '@/lib/readings/saju-guidance';
+import type { ReadingSession } from '@/lib/tarot/types';
 
 export default function HomePage() {
   // Main navigation tab: 'tarot' | 'saju' | 'compatibility'
@@ -46,7 +52,21 @@ export default function HomePage() {
   };
 
   // Result state for Person A
-  const [result, setResult] = useState<SajuResult | null>(null);
+  const [calculatedResult, setResult] = useState<SajuResult | null>(null);
+
+  const currentInput = { year, month, day, hour: isHourUnknown ? undefined : hour,
+    minute: isHourUnknown ? undefined : minute, calendarType, isLeapMonth, gender, useTrueSolarTime };
+  const inputKey = (input: SajuResult['input']) => JSON.stringify([
+    input.year, input.month, input.day, input.hour, input.minute ?? 0,
+    input.calendarType ?? 'solar', input.isLeapMonth ?? false, input.gender ?? 'female', input.useTrueSolarTime ?? true,
+  ]);
+  const result = calculatedResult && inputKey(currentInput) === inputKey(calculatedResult.input) ? calculatedResult : null;
+  const [inputStep, setInputStep] = useState(0);
+  const [topic, setTopic] = useState<ReadingTopic>('love');
+  const [resultTopic, setResultTopic] = useState<ReadingTopic>('love');
+  const [openedTarot, setOpenedTarot] = useState<ReadingSession | null>(null);
+  const [shareError, setShareError] = useState('');
+  const guidance = result ? getSajuGuidance(result, resultTopic) : null;
 
   // Partner input state for Compatibility Tab
   const [partnerYear, setPartnerYear] = useState<number>(1995);
@@ -59,10 +79,8 @@ export default function HomePage() {
   // Compatibility Result
   const [compatResult, setCompatResult] = useState<CompatibilityScore | null>(null);
 
-  // Initial calculation on mount
-  useEffect(() => {
-    runCalculation();
-  }, []);
+  const [calculationError, setCalculationError] = useState('');
+  const [partnerError, setPartnerError] = useState('');
 
   const runCalculation = () => {
     try {
@@ -78,28 +96,28 @@ export default function HomePage() {
         useTrueSolarTime,
       });
       setResult(res);
+      setResultTopic(topic);
+      setShareError('');
 
-      // Auto update compatibility if partner exists
-      if (res) {
-        const partnerRes = calculateSajuComplete({
-          year: partnerYear,
-          month: partnerMonth,
-          day: partnerDay,
-          hour: partnerIsHourUnknown ? undefined : partnerHour,
-          minute: 0,
-          gender: partnerGender,
-          calendarType: 'solar',
-        });
-        setCompatResult(calculateCompatibility(res, partnerRes));
-      }
+      setCompatResult(null);
+      setCalculationError('');
+      setPartnerError('');
+      setFlippedCards({});
     } catch (e) {
-      console.error(e);
+      setResult(null);
+      setCompatResult(null);
+      setCalculationError(e instanceof Error ? e.message : '사주 계산에 실패했습니다. 입력을 확인해주세요.');
     }
   };
 
   const handlePartnerCalculate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!result) return;
+    setCompatResult(null);
+    setPartnerError('');
+    if (!result) {
+      setPartnerError('먼저 사주 탭에서 내 출생 정보를 입력하고 계산해주세요.');
+      return;
+    }
     try {
       const partnerRes = calculateSajuComplete({
         year: partnerYear,
@@ -112,11 +130,11 @@ export default function HomePage() {
       });
       setCompatResult(calculateCompatibility(result, partnerRes));
     } catch (err) {
-      console.error(err);
+      setPartnerError(err instanceof Error ? err.message : '상대방 출생 정보를 확인해주세요.');
     }
   };
 
-  const handleCopySummary = () => {
+  const handleCopySummary = async () => {
     if (!result) return;
     const text = `🌸 [LUMEN SAJU] 나의 감성 사주 리포트
 ✨ 사주: ${result.summary.sajuText} (${result.summary.sajuHanjaText})
@@ -128,14 +146,34 @@ export default function HomePage() {
         : '은은한 파스텔 톤'
     }
 🌟 신살: ${result.sinsal?.map((s) => s.name).join(', ') || '없음'}`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    try {
+      await navigator.clipboard.writeText(text);
+      setShareError('');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch { setShareError('복사하지 못했어요. 이 브라우저에서 클립보드를 허용하거나 스토리 이미지로 저장해주세요.'); }
   };
 
   const handleDownloadStory = () => {
     if (!result) return;
-    downloadInstagramStoryImage(result);
+    try { downloadInstagramStoryImage(result); setShareError(''); }
+    catch { setShareError('이미지를 저장하지 못했어요. 결과 요약을 복사하거나 화면을 캡처해주세요.'); }
+  };
+
+  const openReading = (entry: SavedReading) => {
+    if (entry.kind === 'tarot') {
+      setOpenedTarot(entry.session);
+      setActiveTab('tarot');
+      return;
+    }
+    const input = entry.result.input;
+    setYear(input.year); setMonth(input.month); setDay(input.day);
+    setHour(input.hour ?? 12); setMinute(input.minute ?? 0); setIsHourUnknown(input.hour === undefined);
+    setCalendarType(input.calendarType ?? 'solar'); setIsLeapMonth(input.isLeapMonth ?? false);
+    setGender(input.gender ?? 'female'); setUseTrueSolarTime(input.useTrueSolarTime ?? true);
+    setTopic(entry.topic); setResultTopic(entry.topic); setResult(entry.result);
+    setCalculationError(''); setShareError(''); setCompatResult(null); setPartnerError('');
+    setInputStep(1); setActiveTab('saju'); setFlippedCards({});
   };
 
   const isTarot = activeTab === 'tarot';
@@ -167,7 +205,7 @@ export default function HomePage() {
           <span>✨</span>
           <span>
             {isTarot
-              ? 'ReactBits 3D 인터랙션 & 22장 메이저 아르카나 덱'
+              ? '22장의 카드가 전하는 마음의 메시지'
               : '한국 정통 만세력 교차 검증 & 입춘 절기 연도보정 시스템'}
           </span>
         </div>
@@ -184,7 +222,7 @@ export default function HomePage() {
           }`}
         >
           {isTarot
-            ? '나를 비추는 마음의 나침반. 3D 인터랙티브 카드 셔플과 20대 감성 힐링 타로 리딩을 경험해보세요.'
+            ? '마음에 남는 질문을 골라 카드를 펼쳐보세요. 나를 돌아볼 작은 힌트를 만나보세요.'
             : '나를 비추는 빛의 명리학. 어렵고 낡은 사주 대신, 나의 고유한 우주와 오행 퍼스널 컬러를 발견해보세요.'}
         </p>
 
@@ -241,23 +279,38 @@ export default function HomePage() {
         </div>
       </header>
 
+      <ReadingLibrary onOpen={openReading} />
+
       {/* Main Container */}
       <main className="max-w-4xl mx-auto px-4 space-y-8 mt-2">
         {/* ======================= TAB 0: TAROT ======================= */}
-        {activeTab === 'tarot' && <TarotExperience />}
+        {activeTab === 'tarot' && <TarotExperience key={openedTarot?.id ?? 'new'} initialSession={openedTarot ?? undefined} />}
 
         {/* ======================= TAB 1: SAJU ======================= */}
         {activeTab === 'saju' && (
           <div className="space-y-8">
             {/* Input Card */}
             <div className="glass-card rounded-3xl p-6 md:p-8 shadow-sm">
-              <form
+              <p className="mb-4 text-sm text-stone-600">{calculatedResult ? '입력 정보를 바꾸면 다시 계산해주세요. 저장한 결과는 내 리딩함에서 다시 열 수 있어요.' : '아래 날짜는 입력 예시예요. 내 출생 정보로 바꾼 뒤 결과를 확인해주세요.'}</p>
+              <ol aria-label="사주 입력 진행" className="flex gap-3 text-xs mb-5">
+                {['생년월일', '출생 시간', '결과 확인'].map((label, index) => <li key={label} aria-current={(result ? 2 : inputStep) === index ? 'step' : undefined} className={(result ? 2 : inputStep) === index ? 'text-rose-700 font-semibold' : 'text-stone-500'}>{index + 1}. {label}</li>)}
+              </ol>
+              <form noValidate
+                onChange={() => { setResult(null); setCompatResult(null); setCalculationError(''); }}
                 onSubmit={(e) => {
                   e.preventDefault();
-                  runCalculation();
+                  if (inputStep === 0) {
+                    try { validateSajuInput({ ...currentInput, hour: undefined, minute: 0 }); setCalculationError(''); setInputStep(1); }
+                    catch (error) { setResult(null); setCalculationError(error instanceof Error ? error.message : '출생 정보를 확인해주세요.'); }
+                  } else { runCalculation(); }
                 }}
                 className="space-y-6"
               >
+                <fieldset hidden={inputStep !== 0} className="space-y-6">
+                  <legend className="font-medium mb-3">어떤 고민이 마음에 머무나요?</legend>
+                  <div className="flex gap-2 flex-wrap">
+                    {(Object.keys(TOPICS) as ReadingTopic[]).map(key => <button key={key} type="button" aria-pressed={topic === key} onClick={() => { setTopic(key); setResult(null); setCompatResult(null); }} className={`px-4 py-2 rounded-xl text-sm border ${topic === key ? 'bg-rose-500 text-white border-rose-500' : 'border-stone-300 text-stone-700'}`}>{TOPICS[key]}</button>)}
+                  </div>
                 {/* 1. Calendar Type & Gender Segment */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-4 border-b border-stone-200/60">
                   <div className="flex items-center gap-2">
@@ -345,6 +398,7 @@ export default function HomePage() {
                           type="number"
                           min={1900}
                           max={2050}
+                          aria-label="출생 연도"
                           value={year}
                           onChange={(e) => setYear(Number(e.target.value))}
                           className="w-full pr-7 pl-2 py-2.5 bg-stone-50/80 border border-stone-200 rounded-2xl text-stone-800 text-center text-sm md:text-base font-medium min-h-[44px] focus:outline-none focus:ring-2 focus:ring-rose-300 focus:bg-white transition"
@@ -358,6 +412,7 @@ export default function HomePage() {
                           type="number"
                           min={1}
                           max={12}
+                          aria-label="출생 월"
                           value={month}
                           onChange={(e) => setMonth(Number(e.target.value))}
                           className="w-full pr-7 pl-2 py-2.5 bg-stone-50/80 border border-stone-200 rounded-2xl text-stone-800 text-center text-sm md:text-base font-medium min-h-[44px] focus:outline-none focus:ring-2 focus:ring-rose-300 focus:bg-white transition"
@@ -371,6 +426,7 @@ export default function HomePage() {
                           type="number"
                           min={1}
                           max={31}
+                          aria-label="출생 일"
                           value={day}
                           onChange={(e) => setDay(Number(e.target.value))}
                           className="w-full pr-7 pl-2 py-2.5 bg-stone-50/80 border border-stone-200 rounded-2xl text-stone-800 text-center text-sm md:text-base font-medium min-h-[44px] focus:outline-none focus:ring-2 focus:ring-rose-300 focus:bg-white transition"
@@ -381,6 +437,10 @@ export default function HomePage() {
                   </div>
                 </div>
 
+                </fieldset>
+                <fieldset hidden={inputStep !== 1} className="space-y-6">
+                  <legend className="font-medium mb-3">태어난 시간을 알려주세요</legend>
+                  <p className="text-xs text-stone-500">{year}년 {month}월 {day}일 · {calendarType === 'lunar' ? '음력' : '양력'}{isLeapMonth ? ' 윤달' : ''} · {TOPICS[topic]} 고민</p>
                 {/* 3. Birth Time Section */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -391,10 +451,11 @@ export default function HomePage() {
                       <button
                         type="button"
                         role="switch"
+                        aria-label="태어난 시간 모름"
                         aria-checked={isHourUnknown}
                         className="toggle-switch"
                         data-checked={isHourUnknown}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); setIsHourUnknown(!isHourUnknown); }}
                       />
                       <span className="text-xs text-stone-500 hover:text-stone-700 select-none">태어난 시간을 몰라요 (3주 모드)</span>
                     </div>
@@ -404,7 +465,8 @@ export default function HomePage() {
                     <div className="grid grid-cols-2 gap-2 md:gap-4">
                       <div className="relative">
                         <select
-                          value={hour}
+                          aria-label="출생 시"
+                        value={hour}
                           onChange={(e) => setHour(Number(e.target.value))}
                           className="premium-select w-full px-3.5 py-2.5 bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl text-stone-800 text-sm md:text-base font-medium focus:outline-none focus:ring-2 focus:ring-rose-300/50 focus:border-rose-300 focus:bg-white transition-all appearance-none text-center cursor-pointer shadow-sm hover:shadow-md hover:border-stone-300 min-h-[44px]"
                         >
@@ -417,7 +479,8 @@ export default function HomePage() {
                       </div>
                       <div className="relative">
                         <select
-                          value={minute}
+                          aria-label="출생 분"
+                        value={minute}
                           onChange={(e) => setMinute(Number(e.target.value))}
                           className="premium-select w-full px-3.5 py-2.5 bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl text-stone-800 text-sm md:text-base font-medium focus:outline-none focus:ring-2 focus:ring-rose-300/50 focus:border-rose-300 focus:bg-white transition-all appearance-none text-center cursor-pointer shadow-sm hover:shadow-md hover:border-stone-300 min-h-[44px]"
                         >
@@ -431,7 +494,7 @@ export default function HomePage() {
                     </div>
                   ) : (
                     <div className="p-3 bg-stone-50/80 border border-dashed border-stone-200 rounded-2xl text-center text-xs text-stone-500">
-                      시간을 모를 경우, 생년월일(년주·월주·일주 3기둥)을 기준으로 정확하게 계산됩니다.
+                      시간을 모르면 시주 없이 계산해요. 절기 경계일의 연주·월주는 정오 기준의 참고 결과입니다.
                     </div>
                   )}
                 </div>
@@ -443,16 +506,16 @@ export default function HomePage() {
                     onClick={() => setShowAdvanced(!showAdvanced)}
                     className="text-xs text-stone-500 hover:text-stone-800 flex items-center gap-1 font-medium transition cursor-pointer"
                   >
-                    <span>{showAdvanced ? '▴ 고급 설정 닫기' : '▾ 정밀 만세력 전문 설정 (진태양시 보정)'}</span>
+                    <span>{showAdvanced ? '▴ 고급 설정 닫기' : '▾ 시간 보정 설정'}</span>
                   </button>
 
                   {showAdvanced && (
                     <div className="mt-3 p-4 bg-stone-50/90 rounded-2xl border border-stone-200/80 space-y-3 text-xs">
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-semibold text-stone-700">진태양시 -30분 자동 보정</div>
+                          <div className="font-semibold text-stone-700">한국 출생 기준 고정 -30분 보정</div>
                           <div className="text-stone-500 text-[11px] mt-0.5">
-                            한국 표준시(동경 135도)와 서울 실제 경도(127.5도) 사이의 약 30분 시차를 보정합니다.
+                            동경 127.5도를 가정해 30분을 빼요. 실제 출생지 경도·균시차를 반영한 진태양시 계산은 아니며 해외 출생에는 적합하지 않습니다.
                           </div>
                         </div>
                         <button
@@ -468,13 +531,16 @@ export default function HomePage() {
                   )}
                 </div>
 
+                </fieldset>
+                {inputStep === 1 && <button type="button" onClick={() => { setInputStep(0); setCalculationError(''); }} className="text-sm text-stone-600 underline">이전 단계로</button>}
+                {calculationError && <p role="alert" className="text-sm text-rose-700 bg-rose-50 rounded-xl p-3">{calculationError}</p>}
                 {/* CTA Button */}
                 <button
                   type="submit"
                   className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-rose-500 via-rose-400 to-amber-400 text-white font-medium text-base shadow-md shadow-rose-200 hover:shadow-lg hover:shadow-rose-300 hover:scale-[1.005] active:scale-[0.995] transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>✨</span>
-                  <span>나의 감성 사주 & 오행 컬러 확인하기</span>
+                  <span>{inputStep === 0 ? '다음 · 출생 시간 입력' : '나의 감성 사주 & 오행 컬러 확인하기'}</span>
                 </button>
               </form>
             </div>
@@ -482,6 +548,16 @@ export default function HomePage() {
             {/* Results Section */}
             {result && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {guidance && <section className="glass-card rounded-3xl p-6 space-y-4">
+                  <h2 className="text-lg font-semibold">{guidance.title}</h2>
+                  <p className="text-sm text-stone-700 leading-relaxed">{guidance.summary}</p>
+                  <p className="text-xs text-stone-500">해석의 출발점: {guidance.basis}</p>
+                  <h3 className="text-sm font-semibold">지금 해볼 행동 3가지</h3>
+                  <ol className="list-decimal pl-5 space-y-2 text-sm text-stone-700">{guidance.actions.map(action => <li key={action}>{action}</li>)}</ol>
+                  <p className="text-xs text-stone-500">선택한 고민과 오행을 바탕으로 한 자기 성찰 가이드예요. 상대의 마음이나 미래를 확정하는 답은 아닙니다.</p>
+                  <SaveReadingButton key={JSON.stringify(result.input) + resultTopic} payload={{ kind: 'saju', result, topic: resultTopic }} />
+                  {shareError && <p role="alert" className="text-xs text-rose-700">{shareError}</p>}
+                </section>}
                 {/* 1. Day Master Persona Card */}
                 <div className="glass-card rounded-3xl p-6 md:p-8 text-center relative overflow-hidden border-rose-100 shadow-sm">
                   <div className="absolute -top-12 -right-12 w-40 h-40 bg-rose-200/30 rounded-full blur-2xl pointer-events-none" />
@@ -520,7 +596,7 @@ export default function HomePage() {
                     </span>
                     {result.correctedTime && (
                       <span className="bg-amber-50 text-amber-800 px-3 py-1 rounded-full border border-amber-200/50">
-                        진태양시 보정: {result.correctedTime.hour}시 {result.correctedTime.minute}분
+                        고정 -30분 보정: {result.correctedTime.hour}시 {result.correctedTime.minute}분
                       </span>
                     )}
                   </div>
@@ -537,15 +613,15 @@ export default function HomePage() {
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-emerald-950 text-sm">
                             {result.validation.status === 'exact_match'
-                              ? '정통 만세력 교차 검증 통과 (100% 일치)'
+                              ? '연주 비교 완료 · 절기 기준 적용'
                               : '연초/연말 절기(입춘 시각) 연도 이월 보정 완료'}
                           </span>
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            KASI 천문역 기준
+                            절기 시각 자체 계산
                           </span>
                         </div>
                         <div className="text-xs text-emerald-800/80 mt-0.5 font-light">
-                          {result.validation.corrections.reason}
+                          {result.validation.corrections.reason} 독립적인 만세력과의 전체 경계값 대조는 진행 중입니다.
                         </div>
                       </div>
                     </div>
@@ -845,7 +921,7 @@ export default function HomePage() {
 
                     {/* Timeline steps */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
-                      {result.daewoon.steps.map((step: any, idx: number) => (
+                      {result.daewoon.steps.map((step, idx) => (
                         <div
                           key={idx}
                           className={`p-3 rounded-2xl border text-center transition-all ${
@@ -938,8 +1014,8 @@ export default function HomePage() {
                   </span>
                 </div>
                 <div className="text-xs text-stone-600 space-y-1">
-                  <div>• 생년월일: {year}년 {month}월 {day}일 ({gender === 'female' ? '여성' : '남성'})</div>
-                  <div>• 사주: {result ? result.summary.sajuText : '분석 중'}</div>
+                  <div>• 생년월일: {result ? `${result.input.year}년 ${result.input.month}월 ${result.input.day}일 (${result.input.calendarType === 'lunar' ? '음력' : '양력'})` : '아직 입력하지 않았어요'}</div>
+                  <div>• 사주: {result ? result.summary.sajuText : '사주 탭에서 먼저 계산해주세요'}</div>
                 </div>
               </div>
 
@@ -950,7 +1026,7 @@ export default function HomePage() {
                   <div className="flex items-center gap-1 text-xs">
                     <button
                       type="button"
-                      onClick={() => setPartnerGender('male')}
+                      onClick={() => { setPartnerGender('male'); setCompatResult(null); }}
                       className={`px-2 py-0.5 rounded-lg cursor-pointer ${
                         partnerGender === 'male' ? 'bg-stone-800 text-white' : 'text-stone-400'
                       }`}
@@ -959,7 +1035,7 @@ export default function HomePage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPartnerGender('female')}
+                      onClick={() => { setPartnerGender('female'); setCompatResult(null); }}
                       className={`px-2 py-0.5 rounded-lg cursor-pointer ${
                         partnerGender === 'female' ? 'bg-rose-500 text-white' : 'text-stone-400'
                       }`}
@@ -969,7 +1045,7 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <form onSubmit={handlePartnerCalculate} className="space-y-4">
+                <form onSubmit={handlePartnerCalculate} onChange={() => { setCompatResult(null); setPartnerError(''); }} className="space-y-4">
                   <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     <div className="relative">
                       <input
@@ -1007,14 +1083,14 @@ export default function HomePage() {
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
-                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => setPartnerIsHourUnknown(!partnerIsHourUnknown)}>
+                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setPartnerIsHourUnknown(!partnerIsHourUnknown); setCompatResult(null); }}>
                       <button
                         type="button"
                         role="switch"
                         aria-checked={partnerIsHourUnknown}
                         className="toggle-switch"
                         data-checked={partnerIsHourUnknown}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); setPartnerIsHourUnknown(!partnerIsHourUnknown); setCompatResult(null); }}
                       />
                       <span className="text-[11px] text-stone-500 select-none">상대방 시간 모름</span>
                     </div>
@@ -1045,8 +1121,9 @@ export default function HomePage() {
               </div>
             </div>
 
+            {partnerError && <p role="alert" className="text-sm text-rose-700 bg-rose-50 rounded-xl p-3">{partnerError}</p>}
             {/* Compatibility Result Card */}
-            {compatResult && (
+            {result && compatResult && (
               <div className="glass-card-gold rounded-3xl p-6 md:p-8 space-y-6 animate-in fade-in duration-300">
                 <div className="text-center space-y-2">
                   <div className="text-5xl font-serif font-bold text-rose-600">
@@ -1183,7 +1260,6 @@ export default function HomePage() {
 
 // Subcomponent: Flippable Pillar Card
 function FlippablePillarCard({
-  pillarKey,
   pillar,
   title,
   subtitle,
@@ -1192,7 +1268,7 @@ function FlippablePillarCard({
   onFlip,
 }: {
   pillarKey: string;
-  pillar: any;
+  pillar: PillarInfo;
   title: string;
   subtitle: string;
   isDayMaster: boolean;
@@ -1272,7 +1348,7 @@ function FlippablePillarCard({
           </div>
 
           <div className="space-y-2 pt-2 flex-1">
-            {pillar.jiji.hiddenStems.map((stem: any, idx: number) => (
+            {pillar.jiji.hiddenStems.map((stem, idx) => (
               <div key={idx} className="p-2 bg-white/80 rounded-xl border border-stone-100 space-y-1 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-stone-800">
@@ -1372,10 +1448,10 @@ function AnimatedScore({ target }: { target: number }) {
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {
-    setDisplay(0);
     const duration = 1200; // ms
     const startTime = Date.now();
 
+    let frame: number;
     const tick = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
@@ -1384,11 +1460,12 @@ function AnimatedScore({ target }: { target: number }) {
       setDisplay(Math.round(eased * target));
 
       if (progress < 1) {
-        requestAnimationFrame(tick);
+        frame = requestAnimationFrame(tick);
       }
     };
 
-    requestAnimationFrame(tick);
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, [target]);
 
   return <span className="animate-digit-roll inline-block tabular-nums">{display}</span>;

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- LUMEN 테마 색상 -->
+    <color name="colorPrimary">#0c0a1a</color>
+    <color name="colorPrimaryDark">#0c0a1a</color>
+    <color name="backgroundColor">#0c0a1a</color>
+    <color name="navigationColor">#0c0a1a</color>
+    <color name="navigationColorDark">#0c0a1a</color>
+
+    <bool name="enableNotification">false</bool>
+</resources>

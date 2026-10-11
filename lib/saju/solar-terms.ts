@@ -64,7 +64,7 @@ export function getApparentSolarLongitude(jd: number): number {
     0.000289 * Math.sin(3 * M);
 
   // 태양 진황경 (True Longitude)
-  let trueLong = L0 + C;
+  const trueLong = L0 + C;
 
   // 장동(Nutation) 및 광행차(Aberration) 보정
   const omega = ((125.04 - 1934.136 * T) * Math.PI) / 180;

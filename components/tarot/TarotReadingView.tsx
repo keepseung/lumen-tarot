@@ -29,18 +29,11 @@ export function TarotReadingView({ session, onRestart }: TarotReadingViewProps) 
   const [revealedMap, setRevealedMap] = useState<Record<number, boolean>>({});
   const [activeTabCardIdx, setActiveTabCardIdx] = useState<number>(0);
   const [copied, setCopied] = useState(false);
+  const [shareError, setShareError] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
 
   const totalCards = session.drawnCards.length;
   const allRevealed = session.drawnCards.every((_, i) => revealedMap[i]);
-
-  // 첫 번째 카드는 0.4초 후 자동 오픈
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      revealCard(0);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, []);
 
   const triggerConfetti = () => {
     try {
@@ -54,6 +47,15 @@ export function TarotReadingView({ session, onRestart }: TarotReadingViewProps) 
       // no-op if in non-browser context
     }
   };
+
+  // 마운트 후 첫 카드를 열고, 재열람 시에도 같은 세션을 사용합니다.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setRevealedMap(prev => ({ ...prev, 0: true }));
+      triggerConfetti();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, []);
 
   const revealCard = (idx: number) => {
     if (revealedMap[idx]) return;
@@ -88,10 +90,11 @@ export function TarotReadingView({ session, onRestart }: TarotReadingViewProps) 
 
     try {
       await navigator.clipboard.writeText(lines.join('\n'));
+      setShareError('');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback
+      setShareError('복사하지 못했어요. 클립보드를 허용하거나 스토리 이미지로 저장해주세요.');
     }
   };
 
@@ -99,6 +102,9 @@ export function TarotReadingView({ session, onRestart }: TarotReadingViewProps) 
     setIsDownloading(true);
     try {
       await downloadTarotStoryCard(session);
+      setShareError('');
+    } catch {
+      setShareError('이미지를 저장하지 못했어요. 결과 요약을 복사하거나 화면을 캡처해주세요.');
     } finally {
       setIsDownloading(false);
     }
@@ -111,6 +117,7 @@ export function TarotReadingView({ session, onRestart }: TarotReadingViewProps) 
 
   return (
     <div className="w-full max-w-5xl mx-auto py-8 px-4 flex flex-col items-center">
+      {shareError && <p role="alert" className="text-sm text-rose-200 mb-4">{shareError}</p>}
       {/* 상단 리딩 타이틀 헤더 */}
       <motion.div
         initial={{ opacity: 0, y: -15 }}
@@ -231,7 +238,7 @@ export function TarotReadingView({ session, onRestart }: TarotReadingViewProps) 
                   운명의 종합 가이드 (Synthesis)
                 </h3>
               </div>
-              <p className="text-sm md:text-base text-slate-200 leading-relaxed font-light">
+              <p className="text-sm md:text-base text-slate-200 leading-relaxed font-light whitespace-pre-line">
                 {generateOverallSynthesis(session)}
               </p>
             </div>
@@ -291,7 +298,7 @@ export function TarotReadingView({ session, onRestart }: TarotReadingViewProps) 
                 </div>
 
                 {/* 2) 연애운 & 속마음 */}
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                {session.spread.id === 'love' && <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
                   <div className="flex items-center gap-2 text-rose-300 font-bold text-sm mb-2">
                     <Heart className="w-4 h-4" />
                     <span>연애 & 상대방 속마음</span>
@@ -299,10 +306,10 @@ export function TarotReadingView({ session, onRestart }: TarotReadingViewProps) 
                   <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
                     {activeDetail?.love}
                   </p>
-                </div>
+                </div>}
 
                 {/* 3) 커리어 & 성취 */}
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                {(session.spread.id === 'career' || session.preset?.category === 'money') && <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
                   <div className="flex items-center gap-2 text-cyan-300 font-bold text-sm mb-2">
                     <Briefcase className="w-4 h-4" />
                     <span>커리어 & 현실적 결실</span>
@@ -310,7 +317,7 @@ export function TarotReadingView({ session, onRestart }: TarotReadingViewProps) 
                   <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
                     {activeDetail?.career}
                   </p>
-                </div>
+                </div>}
 
                 {/* 4) 나를 위한 럭키 조언 (처방전) */}
                 <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20">

@@ -74,6 +74,7 @@ export interface QuestionPreset {
 }
 
 export interface ReadingSession {
+  synthesis?: string; // 생성 시 확정해 재열람 때 같은 요약을 표시
   id: string;
   spread: SpreadConfig;
   preset?: QuestionPreset;

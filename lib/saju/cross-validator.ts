@@ -1,3 +1,4 @@
+import { validateSajuInput } from './input-validation';
 import KoreanLunarCalendar from 'korean-lunar-calendar';
 import * as manseryeok from '@fullstackfamily/manseryeok';
 import { CalendarType, Cheongan, CrossValidationReport, Jiji } from './types';
@@ -53,6 +54,7 @@ export interface VerifiedPillars {
  * 입춘(立春) 절입 시각 기준 연도 이월 버그를 이중 예외 보정하는 코어 함수
  */
 export function crossValidateAndVerify(input: CrossValidationInput): VerifiedPillars {
+  validateSajuInput(input);
   const {
     year: inYear,
     month: inMonth,
@@ -77,7 +79,7 @@ export function crossValidateAndVerify(input: CrossValidationInput): VerifiedPil
   // 1. 음/양력 변환 교차 검증
   if (calendarType === 'lunar') {
     // A. korean-lunar-calendar로 음력 -> 양력 변환
-    const kSuccess = kCal.setLunarDate(inYear, inMonth, inDay, isLeapMonth);
+    kCal.setLunarDate(inYear, inMonth, inDay, isLeapMonth);
     const kSolar = kCal.getSolarCalendar();
 
     // B. @fullstackfamily/manseryeok으로 음력 -> 양력 변환

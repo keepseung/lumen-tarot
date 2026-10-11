@@ -138,31 +138,35 @@ export function drawRandomCards(
   allowReversed: boolean = false,
   selectedIndices?: number[]
 ): { card: TarotCard; isReversed: boolean }[] {
-  // 복사본 생성
-  const deck = [...MAJOR_ARCANA_CARDS];
+  if (!Number.isInteger(count) || count < 1 || count > MAJOR_ARCANA_CARDS.length) {
+    throw new Error('올바른 카드 수를 선택해주세요.');
+  }
+  const deck = createShuffledDeck(allowReversed);
+  return selectDeckCards(deck, selectedIndices ?? Array.from({ length: count }, (_, i) => i), count);
+}
 
-  // Fisher-Yates Shuffle
-  for (let i = deck.length - 1; i > 0; i--) {
+export type DeckCard = { card: TarotCard; isReversed: boolean };
+
+/** 한 번 섞은 덱과 방향을 선택이 끝날 때까지 유지합니다. */
+export function createShuffledDeck(allowReversed = false): DeckCard[] {
+  const cards = [...MAJOR_ARCANA_CARDS];
+  for (let i = cards.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
+    [cards[i], cards[j]] = [cards[j], cards[i]];
   }
+  return cards.map(card => ({ card, isReversed: allowReversed && Math.random() < 0.35 }));
+}
 
-  const result: { card: TarotCard; isReversed: boolean }[] = [];
-
-  for (let i = 0; i < count; i++) {
-    // 사용자가 선택한 인덱스가 유효하면 해당 위치 참조, 아니면 셔플된 덱의 순서대로
-    const pickIndex =
-      selectedIndices && selectedIndices[i] !== undefined
-        ? selectedIndices[i] % deck.length
-        : i;
-
-    const card = deck[pickIndex] || deck[i];
-    const isReversed = allowReversed ? Math.random() < 0.35 : false; // 역방향 35% 확률
-
-    result.push({ card, isReversed });
+export function selectDeckCards(deck: DeckCard[], indices: number[], count: number): DeckCard[] {
+  if (indices.length !== count || new Set(indices).size !== count ||
+      indices.some(index => !Number.isInteger(index) || index < 0 || index >= deck.length)) {
+    throw new Error('서로 다른 카드를 순서대로 선택해주세요.');
   }
-
-  return result;
+  const selected = indices.map(index => deck[index]);
+  if (new Set(selected.map(item => item.card.id)).size !== count) {
+    throw new Error('덱에 중복 카드가 있습니다. 다시 섞어주세요.');
+  }
+  return selected;
 }
 
 /**
@@ -193,7 +197,7 @@ export function createReadingSession(
     revealed: false,
   }));
 
-  return {
+  const session: ReadingSession = {
     id: `session_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     spread,
     preset: options.preset,
@@ -202,12 +206,15 @@ export function createReadingSession(
     allowReversed,
     createdAt: new Date().toISOString(),
   };
+  session.synthesis = generateOverallSynthesis(session);
+  return session;
 }
 
 /**
  * 1장 또는 3장의 카드를 종합하여 감성적인 총평 요약 메시지를 생성합니다.
  */
 export function generateOverallSynthesis(session: ReadingSession): string {
+  if (session.synthesis !== undefined) return session.synthesis;
   const cards = session.drawnCards;
   if (cards.length === 0) return '';
 
@@ -215,34 +222,16 @@ export function generateOverallSynthesis(session: ReadingSession): string {
     const main = cards[0];
     const cardName = main.card.nameKo;
     const dirText = main.isReversed ? '역방향' : '정방향';
-    return `오늘 하루 당신을 이끄는 카드는 **${cardName}(${dirText})**입니다. ${
+    return `오늘 하루 당신을 이끄는 카드는 ${cardName}(${dirText})입니다. ${
       main.isReversed ? main.card.reversed.general : main.card.upright.general
-    } 오늘 하루는 특히 **"${main.card.keywords[0]}"**의 마음가짐으로 가볍고 당당하게 보내보세요!`;
+    } 오늘 하루는 특히 "${main.card.keywords[0]}"의 마음가짐으로 가볍고 당당하게 보내보세요!`;
   }
 
-  if (session.spread.id === 'love') {
-    const [c1, c2, c3] = cards;
-    return `상대방은 현재 **${c1.card.nameKo}**의 상태로, ${
-      c1.isReversed ? '조금 주저하거나 조심스러운 마음' : '당신에 대한 뚜렷한 호감과 관심'
-    }을 품고 있습니다. 
-당신은 **${c2.card.nameKo}**처럼 ${
-      c2.isReversed ? '스스로에게 확신이 부족할 수 있지만' : '진솔하게 마음을 열 준비'
-    }가 되어 있습니다. 
-앞으로 두 사람의 관계는 **${c3.card.nameKo}** 카드가 보여주듯, ${
-      c3.isReversed
-        ? '서두르지 않고 차분히 서로의 템포를 맞출 때 자연스럽게 풀려갈 것'
-        : '가슴 설레는 긍정적인 전환점을 맞이하여 더 깊은 유대'
-    }로 나아가게 됩니다.`;
-  }
-
-  if (session.spread.id === 'career') {
-    const [c1, c2, c3] = cards;
-    return `현재 당신은 **${c1.card.nameKo}**의 탄탄한 잠재력을 바탕으로 기본기를 잘 다져두었습니다. 
-앞으로 마주할 기회는 **${c2.card.nameKo}** 카드가 뜻하듯 ${
-      c2.isReversed ? '돌다리도 두들겨보는 꼼꼼함' : '과감한 도전과 주도적인 실행'
-    }이 행운을 가져다줄 것입니다. 
-최종적인 결실은 **${c3.card.nameKo}** 카드가 상징하듯, 당신의 노력이 기대 이상의 눈부신 인정과 보상으로 이어질 전망입니다!`;
-  }
-
-  return '당신의 내면이 가리키는 빛을 따라가세요.';
+  const theme = session.spread.id === 'love' ? 'love' : 'career';
+  const paragraphs = cards.map((drawn, index) => {
+    const detail = drawn.isReversed ? drawn.card.reversed : drawn.card.upright;
+    const meaning = index === 0 ? detail[theme] : index === 1 ? detail.general : detail.advice;
+    return `${drawn.position.name} · ${drawn.card.nameKo}(${drawn.isReversed ? '역방향' : '정방향'}): ${meaning}`;
+  });
+  return `${paragraphs.join('\n\n')}\n\n카드의 상징을 고민을 돌아보는 단서로 삼아보세요. 상대의 마음과 실제 결과는 대화와 행동으로 확인해주세요.`;
 }

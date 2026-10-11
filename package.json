@@ -7,9 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx scripts/test-saju.ts && npx tsx scripts/test-tarot.ts",
-    "test:saju": "npx tsx scripts/test-saju.ts",
-    "test:tarot": "npx tsx scripts/test-tarot.ts"
+    "test": "node scripts/run-tests.cjs",
+    "test:saju": "node scripts/run-tests.cjs saju",
+    "test:tarot": "node scripts/run-tests.cjs tarot",
+    "test:readings": "node scripts/run-tests.cjs readings"
   },
   "dependencies": {
     "@fullstackfamily/manseryeok": "^1.0.8",

@@ -1,0 +1,51 @@
+{
+  "packageId": "com.lumen.tarot.app",
+  "host": "taro-pearl.vercel.app",
+  "name": "LUMEN — 감성 타로 & 정통 사주",
+  "launcherName": "LUMEN 타로",
+  "display": "standalone",
+  "themeColor": "#0c0a1a",
+  "themeColorDark": "#0c0a1a",
+  "navigationColor": "#0c0a1a",
+  "navigationColorDark": "#0c0a1a",
+  "navigationDividerColor": "#0c0a1a",
+  "navigationDividerColorDark": "#0c0a1a",
+  "backgroundColor": "#0c0a1a",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://taro-pearl.vercel.app/icons/icon-512x512.png",
+  "maskableIconUrl": "https://taro-pearl.vercel.app/icons/icon-maskable-512x512.png",
+  "shortcuts": [
+    {
+      "name": "감성 타로 리딩",
+      "short_name": "타로",
+      "url": "/?tab=tarot",
+      "icons": [{"src": "https://taro-pearl.vercel.app/icons/icon-192x192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "정통 사주 분석",
+      "short_name": "사주",
+      "url": "/?tab=saju",
+      "icons": [{"src": "https://taro-pearl.vercel.app/icons/icon-192x192.png", "sizes": "192x192"}]
+    }
+  ],
+  "signingKey": {
+    "path": "./lumen-tarot.keystore",
+    "alias": "lumen-tarot"
+  },
+  "appVersionCode": 1,
+  "appVersionName": "1.0.0",
+  "splashScreenFadeOutDuration": 300,
+  "enableSiteSettingsShortcut": true,
+  "orientation": "portrait",
+  "fingerprints": [
+    {
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.lumen.tarot.app",
+        "sha256_cert_fingerprints": ["1B:11:FB:8E:B3:0A:68:28:29:5C:88:FE:84:D0:D1:ED:B1:22:09:AF:F9:21:61:DC:77:B9:78:12:12:8A:3F:F0"]
+      }
+    }
+  ]
+}

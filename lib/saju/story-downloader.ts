@@ -15,7 +15,7 @@ export function downloadInstagramStoryImage(result: SajuResult) {
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+  if (!ctx) throw new Error('이 브라우저에서 이미지 생성을 지원하지 않습니다.');
 
   // 1. 몽환적인 파스텔 배경 그라데이션
   const bgGrad = ctx.createLinearGradient(0, 0, width, height);

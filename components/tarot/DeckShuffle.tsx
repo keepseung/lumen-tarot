@@ -1,25 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Shuffle, ArrowRight } from 'lucide-react';
 import { TarotCard3D } from './TarotCard3D';
 
 interface DeckShuffleProps {
   onShuffleComplete: () => void;
+  onShuffle?: () => void;
   questionLabel?: string;
 }
 
-export function DeckShuffle({ onShuffleComplete, questionLabel }: DeckShuffleProps) {
+export function DeckShuffle({ onShuffleComplete, onShuffle, questionLabel }: DeckShuffleProps) {
   const [isShuffling, setIsShuffling] = useState(false);
   const [shuffleCount, setShuffleCount] = useState(0);
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
   const handleShuffle = () => {
     if (isShuffling) return;
     setIsShuffling(true);
+    onShuffle?.();
 
     // 1.8초 동안 셔플 모션 지속
-    setTimeout(() => {
+    timerRef.current = setTimeout(() => {
       setIsShuffling(false);
       setShuffleCount((prev) => prev + 1);
     }, 1800);

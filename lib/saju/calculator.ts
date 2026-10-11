@@ -21,6 +21,7 @@ import { calculateHiddenStems, calculateTenGod, summarizeTenGods } from './ten-g
 import { calculateElementBreakdown } from './elements';
 import { analyzeSinsal } from './sinsal';
 import { calculateDaewoon } from './daewoon';
+import { validateSajuInput } from './input-validation';
 
 // 10천간 자연물 페르소나 매핑 (20대 여성 맞춤형 감성 타이틀)
 export const DAY_MASTER_PERSONAS: Record<
@@ -93,6 +94,7 @@ export const DAY_MASTER_PERSONAS: Record<
  * 사주 종합 계산 메인 함수
  */
 export function calculateSajuComplete(input: SajuCalculationInput): SajuResult {
+  validateSajuInput(input);
   const {
     year,
     month,

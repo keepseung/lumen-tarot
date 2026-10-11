@@ -1,15 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles,
-  Heart,
-  Briefcase,
-  Sun,
-  Compass,
   ArrowRight,
-  Sliders,
   HelpCircle,
 } from 'lucide-react';
 import {
@@ -21,8 +16,11 @@ import {
   QUESTION_PRESETS,
   SPREAD_CONFIGS,
   createReadingSession,
+  createShuffledDeck,
+  selectDeckCards,
+  type DeckCard,
 } from '@/lib/tarot/spreads';
-import { MAJOR_CARD_MAP } from '@/lib/tarot/cards';
+import { SaveReadingButton } from '@/components/readings/ReadingLibrary';
 import { DeckShuffle } from './DeckShuffle';
 import { CardSpread } from './CardSpread';
 import { TarotReadingView } from './TarotReadingView';
@@ -30,15 +28,17 @@ import { TarotBackground } from './TarotBackground';
 
 type FlowStep = 'select_question' | 'shuffle' | 'spread' | 'reading';
 
-export function TarotExperience() {
-  const [step, setStep] = useState<FlowStep>('select_question');
+export function TarotExperience({ initialSession }: { initialSession?: ReadingSession }) {
+  const [step, setStep] = useState<FlowStep>(initialSession ? 'reading' : 'select_question');
   const [selectedSpreadType, setSelectedSpreadType] = useState<SpreadType>('love');
   const [selectedPreset, setSelectedPreset] = useState<QuestionPreset | null>(
     QUESTION_PRESETS[1] // "그 사람의 진짜 속마음이 궁금해요"
   );
   const [customQuestion, setCustomQuestion] = useState('');
   const [allowReversed, setAllowReversed] = useState(false);
-  const [currentSession, setCurrentSession] = useState<ReadingSession | null>(null);
+  const [currentSession, setCurrentSession] = useState<ReadingSession | null>(initialSession ?? null);
+
+  const deckRef = useRef<DeckCard[]>([]);
 
   // 스프레드 프리셋 선택 핸들러
   const handleSelectPreset = (preset: QuestionPreset) => {
@@ -46,8 +46,14 @@ export function TarotExperience() {
     setSelectedSpreadType(preset.spreadType);
   };
 
+  const handleSelectSpread = (spreadType: SpreadType) => {
+    setSelectedSpreadType(spreadType);
+    setSelectedPreset(QUESTION_PRESETS.find(preset => preset.spreadType === spreadType) ?? null);
+  };
+
   // 1단계 -> 2단계(셔플) 진입
   const handleStartShuffle = () => {
+    deckRef.current = createShuffledDeck(allowReversed);
     setStep('shuffle');
   };
 
@@ -63,6 +69,7 @@ export function TarotExperience() {
       preset: selectedPreset || undefined,
       customQuestion: customQuestion.trim() || undefined,
       allowReversed,
+      drawnData: selectDeckCards(deckRef.current, selectedIndices, currentSpread.cardCount),
     });
     setCurrentSession(session);
     setStep('reading');
@@ -177,7 +184,7 @@ export function TarotExperience() {
                   <span className="text-xs text-slate-400">리딩 방식:</span>
                   <div className="inline-flex rounded-xl p-1 bg-white/5 border border-white/10">
                     <button
-                      onClick={() => setSelectedSpreadType('daily')}
+                      onClick={() => handleSelectSpread('daily')}
                       className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
                         selectedSpreadType === 'daily'
                           ? 'bg-amber-400 text-slate-950 font-bold shadow'
@@ -187,7 +194,7 @@ export function TarotExperience() {
                       1장 데일리
                     </button>
                     <button
-                      onClick={() => setSelectedSpreadType('love')}
+                      onClick={() => handleSelectSpread('love')}
                       className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
                         selectedSpreadType === 'love'
                           ? 'bg-amber-400 text-slate-950 font-bold shadow'
@@ -197,7 +204,7 @@ export function TarotExperience() {
                       3장 연애운
                     </button>
                     <button
-                      onClick={() => setSelectedSpreadType('career')}
+                      onClick={() => handleSelectSpread('career')}
                       className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
                         selectedSpreadType === 'career'
                           ? 'bg-amber-400 text-slate-950 font-bold shadow'
@@ -215,10 +222,11 @@ export function TarotExperience() {
                   <button
                     type="button"
                     role="switch"
+                    aria-label="역방향 카드 포함"
                     aria-checked={allowReversed}
                     className="toggle-switch toggle-switch-dark"
                     data-checked={allowReversed}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); setAllowReversed(!allowReversed); }}
                   />
                 </div>
               </div>
@@ -248,6 +256,7 @@ export function TarotExperience() {
             >
               <DeckShuffle
                 onShuffleComplete={handleShuffleComplete}
+                onShuffle={() => { deckRef.current = createShuffledDeck(allowReversed); }}
                 questionLabel={
                   customQuestion || selectedPreset?.label || currentSpread.title
                 }
@@ -267,7 +276,7 @@ export function TarotExperience() {
               <CardSpread
                 spread={currentSpread}
                 onSelectionComplete={handleSelectionComplete}
-                onReset={() => setStep('shuffle')}
+                onReset={handleStartShuffle}
               />
             </motion.div>
           )}
@@ -281,6 +290,7 @@ export function TarotExperience() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
             >
+              <SaveReadingButton key={currentSession.id} payload={{ kind: 'tarot', session: currentSession }} />
               <TarotReadingView
                 session={currentSession}
                 onRestart={handleRestart}

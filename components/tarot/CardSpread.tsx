@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, CheckCircle2, RotateCcw } from 'lucide-react';
 import { SpreadConfig } from '@/lib/tarot/types';
@@ -20,6 +20,11 @@ export function CardSpread({
   onReset,
 }: CardSpreadProps) {
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  const completionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectionRef = useRef<number[]>([]);
+  useEffect(() => () => {
+    if (completionTimer.current) clearTimeout(completionTimer.current);
+  }, []);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   // SSR-safe viewport width detection
@@ -36,13 +41,14 @@ export function CardSpread({
   const isComplete = currentStep === neededCount;
 
   const handleCardClick = (idx: number) => {
-    if (selectedIndices.includes(idx) || isComplete) return;
+    if (selectionRef.current.includes(idx) || selectionRef.current.length >= neededCount) return;
 
-    const nextIndices = [...selectedIndices, idx];
+    const nextIndices = [...selectionRef.current, idx];
+    selectionRef.current = nextIndices;
     setSelectedIndices(nextIndices);
 
     if (nextIndices.length === neededCount) {
-      setTimeout(() => {
+      completionTimer.current = setTimeout(() => {
         onSelectionComplete(nextIndices);
       }, 700);
     }
@@ -124,7 +130,10 @@ export function CardSpread({
             const yOffset = Math.pow(normalized, 2) * 55; // 포물선 곡선
 
             return (
-              <motion.div
+              <motion.button
+                type="button"
+                aria-label={`${idx + 1}번째 카드${isSelected ? ' · 선택됨' : ''}`}
+                disabled={isSelected || isComplete}
                 key={idx}
                 onPointerEnter={() => setHoveredIdx(idx)}
                 onPointerLeave={() => setHoveredIdx(null)}
@@ -172,7 +181,7 @@ export function CardSpread({
                     </div>
                   )}
                 </div>
-              </motion.div>
+              </motion.button>
             );
           })}
         </div>

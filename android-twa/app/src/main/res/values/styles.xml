@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 기본 테마 (스플래시 후 웹뷰) -->
+    <style name="Theme.LumenTarot" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/colorPrimary</item>
+        <item name="android:navigationBarColor">@color/navigationColor</item>
+        <item name="android:windowBackground">@color/backgroundColor</item>
+    </style>
+
+    <!-- 스플래시 테마 -->
+    <style name="Theme.LumenTarot.Splash" parent="Theme.LumenTarot">
+        <item name="android:windowBackground">@color/backgroundColor</item>
+    </style>
+</resources>

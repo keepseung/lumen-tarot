@@ -1,0 +1,54 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.lumen.tarot.app'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.lumen.tarot.app"
+        minSdk 24
+        targetSdk 36
+        versionCode 4
+        versionName "1.0.2"
+
+        // TWA 설정: Digital Asset Links
+        manifestPlaceholders = [
+            hostName      : "taro-pearl.vercel.app",
+            defaultUrl    : "https://taro-pearl.vercel.app",
+            launcherName  : "LUMEN 타로",
+            assetStatements: '[{ "relation": ["delegate_permission/common.handle_all_urls"], "target": { "namespace": "android_app", "package_name": "com.lumen.tarot.app", "sha256_cert_fingerprints": ["1B:11:FB:8E:B3:0A:68:28:29:5C:88:FE:84:D0:D1:ED:B1:22:09:AF:F9:21:61:DC:77:B9:78:12:12:8A:3F:F0"] } }]'
+        ]
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("../lumen-tarot.keystore")
+            storePassword "lumen2026"
+            keyAlias "lumen-tarot"
+            keyPassword "lumen2026"
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}

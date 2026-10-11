@@ -134,8 +134,8 @@ assert(
 );
 
 // 8. 에셋 매퍼 함수 검증
-const defaultAsset = getCardImageUrl('00_fool');
-assert(defaultAsset === null, '기본 상태에서 null 반환하여 자체 3D 그래픽 렌더러로 폴백 확인');
+const defaultAsset = getCardImageUrl('unknown-card');
+assert(defaultAsset === null, '등록되지 않은 카드의 null 폴백 확인');
 
 console.log('\n==============================================');
 console.log(`📊 테스트 결과: 총 ${totalTests}개 중 ${passedTests}개 통과 (성공률: ${(passedTests / totalTests) * 100}%)`);
